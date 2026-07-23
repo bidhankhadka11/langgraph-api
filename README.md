@@ -137,10 +137,24 @@ Copy `.env.example` to `.env` and fill in:
 ## Testing
 
 ```bash
-uv run pytest
+uv run pytest                                    # run the suite
+uv run pytest --cov=app --cov-report=term-missing  # with coverage
 ```
 
-Component logic is tested with fake LLMs so the suite runs fast and spends no API tokens.
+**61 tests, 100% line coverage** — fast, deterministic, and offline. The LLM clients
+(`ChatOpenAI` / `ChatAnthropic`) are replaced with a deterministic `FakeLLM`, and LangSmith
+tracing is disabled in tests, so the suite spends no API tokens and makes no network calls.
+
+Coverage spans every layer:
+
+- **Agent** — the LangGraph state machine's `primary → fallback → error_handler` routing
+  (fallback fires only when the primary fails and `max_retries` allows it).
+- **API** — the full `/chat` pipeline via `TestClient`: cache miss-then-hit (a repeat query is
+  served from cache without re-invoking the agent), prompt-injection blocking, PII masking on
+  input and output, rate limiting (429), and validation errors (422).
+- **Security, cache, monitoring, models, config** — component logic asserted in isolation.
+
+Shared fixtures and fakes live in [tests/conftest.py](tests/conftest.py).
 
 ## Project Structure
 
@@ -153,7 +167,11 @@ app/
 ├── monitoring.py   # JSON logging, MetricsCollector, RequestTimer
 ├── config.py       # pydantic-settings configuration
 └── models.py       # Pydantic request/response models
-tests/              # pytest suite
+tests/              # pytest suite (conftest fakes + per-module tests)
+├── conftest.py     # FakeLLM / FakeAgent fixtures, dummy keys, tracing off
+├── test_agent.py   # LangGraph routing: primary → fallback → error_handler
+├── test_api.py     # /chat pipeline, health/metrics/cache endpoints, rate limit
+├── test_security.py, test_cache.py, test_monitoring.py, test_models.py, test_config.py
 Dockerfile          # Container image (non-root, healthcheck)
 render.yml          # Render infrastructure-as-code
 ```
