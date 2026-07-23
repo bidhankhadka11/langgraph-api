@@ -5,6 +5,7 @@ Sets dummy API keys and disables LangSmith tracing BEFORE any app module is
 imported, so config loads without real credentials and no test ever touches the
 network. LLM clients are replaced with a deterministic FakeLLM.
 """
+
 import os
 
 # Must run before app.config / app.main import (they call get_settings() and
@@ -73,6 +74,7 @@ def agent(patch_llms):
     """A ProductionAgent whose graph is real but whose LLMs are FakeLLMs.
     Tests assign agent.primary_llm / agent.fallback_llm to control behavior."""
     from app.agent import ProductionAgent
+
     return ProductionAgent()
 
 

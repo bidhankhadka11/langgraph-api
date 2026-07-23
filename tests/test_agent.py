@@ -4,6 +4,7 @@ Tests for the LangGraph ProductionAgent (app/agent.py).
 The graph is exercised for real; only the LLM clients are faked, so the
 primary -> fallback -> error_handler routing is genuinely tested.
 """
+
 from tests.conftest import FakeLLM
 
 

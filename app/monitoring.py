@@ -8,8 +8,8 @@ import json
 import time
 import threading
 from datetime import datetime, timezone
-from functools import wraps
-from typing import Any, Callable
+from typing import Any
+
 
 class JSONFormatter(logging.Formatter):
     """Format log records as JSON for log aggregation (ELK, Datadog, etc)"""
@@ -27,7 +27,8 @@ class JSONFormatter(logging.Formatter):
             log_obj.update(record.extra_fields)
         return json.dumps(log_obj)
 
-def get_logger(name:str = "production-api") -> logging.Logger:
+
+def get_logger(name: str = "production-api") -> logging.Logger:
     """Create a structured JSON logger"""
     logger = logging.getLogger(name)
 

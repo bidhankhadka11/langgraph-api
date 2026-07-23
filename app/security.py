@@ -7,7 +7,8 @@ import re
 from typing import Optional
 from langsmith import traceable
 
-#Prompt injection defence
+
+# Prompt injection defence
 class InputSanitizer:
     INJECTION_PATTERNS = [
         r"ignore\s+(all\s+)?previous\s+instructions",
@@ -23,12 +24,9 @@ class InputSanitizer:
     ]
 
     def __init__(self):
-        self.patterns = [
-            re.compile(p, re.IGNORECASE)
-            for p in self.INJECTION_PATTERNS
-        ]
+        self.patterns = [re.compile(p, re.IGNORECASE) for p in self.INJECTION_PATTERNS]
 
-    def check(self, text:str) -> tuple[bool, Optional[str]]:
+    def check(self, text: str) -> tuple[bool, Optional[str]]:
         """Check if input is safe
         Returns (is_safe, rejection_reason)"""
 
@@ -36,14 +34,13 @@ class InputSanitizer:
             if pattern.search(text):
                 return False, "Blocked: potential prompt injection detected"
         return True, None
-    
-    def clean(self, text:str) -> str:
-        """Remove potentially dangerous delimeteres from input"""
-        text = re.sub(r'[-]{3,}', '', text)
-        text = re.sub(r'[=]{3,}', '', text)
-        text = text.replace('{{', '{ {').replace('}}', '} }')
-        return text.strip()
 
+    def clean(self, text: str) -> str:
+        """Remove potentially dangerous delimeteres from input"""
+        text = re.sub(r"[-]{3,}", "", text)
+        text = re.sub(r"[=]{3,}", "", text)
+        text = text.replace("{{", "{ {").replace("}}", "} }")
+        return text.strip()
 
 
 class PIIDetector:
@@ -53,24 +50,20 @@ class PIIDetector:
     """
 
     PATTERNS = {
-        "email": re.compile(
-            r'\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b'
-        ),
-        "phone": re.compile(r'\b\d{3}[-.]?\d{3}[-.]?\d{4}\b'),
-        "ssn": re.compile(r'\b\d{3}-\d{2}-\d{4}\b'),
-        "credit_card": re.compile(
-            r'\b\d{4}[-\s]?\d{4}[-\s]?\d{4}[-\s]?\d{4}\b'
-        )
+        "email": re.compile(r"\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b"),
+        "phone": re.compile(r"\b\d{3}[-.]?\d{3}[-.]?\d{4}\b"),
+        "ssn": re.compile(r"\b\d{3}-\d{2}-\d{4}\b"),
+        "credit_card": re.compile(r"\b\d{4}[-\s]?\d{4}[-\s]?\d{4}[-\s]?\d{4}\b"),
     }
 
     MASK_MAP = {
         "email": "[EMAIL REDACTED]",
         "phone": "[PHONE REDACTED]",
         "ssn": "[SSN REDACTED]",
-        "credit_card": "[CREDIT CARD REDACTED]"
+        "credit_card": "[CREDIT CARD REDACTED]",
     }
 
-    def detect(self, text:str) -> dict[str, list[str]]:
+    def detect(self, text: str) -> dict[str, list[str]]:
         """Detect PII types present in text"""
         found = {}
         for pii_type, pattern in self.PATTERNS.items():
@@ -78,7 +71,6 @@ class PIIDetector:
             if matches:
                 found[pii_type] = matches
         return found
-    
 
     def mask(self, text: str) -> str:
         """Mask PII in text and return masked text + info about what was masked"""
@@ -86,9 +78,8 @@ class PIIDetector:
         for pii_type, pattern in self.PATTERNS.items():
             masked = pattern.sub(self.MASK_MAP[pii_type], masked)
         return masked
-        
 
-    
+
 class OutputValidator:
     """
     Validate LLM ouput before returning to the client
@@ -104,10 +95,9 @@ class OutputValidator:
     def __init__(self):
         self.pii_detector = PIIDetector()
 
-
-    def validate(self, output:str) -> tuple[str, list[str]]:
+    def validate(self, output: str) -> tuple[str, list[str]]:
         """
-        Validate and clean output. 
+        Validate and clean output.
         Returns (cleaned output , list of warnings)
         """
         warnings = []
@@ -118,8 +108,7 @@ class OutputValidator:
             output = self.pii_detector.mask(output)
             warnings.append(f"PII masked in output: {list(pii_found.keys())}")
 
-        
-        #Check for harmful content
+        # Check for harmful content
         for pattern in self.HARMFUL_PATTERNS:
             if pattern.search(output):
                 output = "[Response blocked: potentially harmful content]"
@@ -129,12 +118,12 @@ class OutputValidator:
         return output, warnings
 
 
-
 # ---- Combined Security Pipeline ----
+
 
 class SecurityPipeline:
     """
-    Full security pipeline that processes input and output. 
+    Full security pipeline that processes input and output.
     This is the single class you wire into api
     """
 
@@ -144,7 +133,7 @@ class SecurityPipeline:
         self.output_validator = OutputValidator()
 
     @traceable(name="security_check_input")
-    def check_input(self,text:str) -> tuple[bool, str, list[str]]:
+    def check_input(self, text: str) -> tuple[bool, str, list[str]]:
         """
         Process input through security checks
         Returns: (is_allowed, cleaned_text, security_notes)
@@ -152,29 +141,26 @@ class SecurityPipeline:
 
         notes = []
 
-        #Step 1: check for prompt injection
+        # Step 1: check for prompt injection
         is_safe, reason = self.sanitizer.check(text)
         if not is_safe:
             return False, "", [reason]
 
-        #Step 2: Clean input
+        # Step 2: Clean input
         cleaned = self.sanitizer.clean(text)
 
-        #Step 3: Mask PII before it reaches LLM
+        # Step 3: Mask PII before it reaches LLM
         pii_found = self.pii_detector.detect(cleaned)
         if pii_found:
             cleaned = self.pii_detector.mask(cleaned)
             notes.append(f"PII masked in input: {list(pii_found.keys())}")
 
         return True, cleaned, notes
-    
 
     @traceable(name="security_check_output")
-    def check_output(self, text:str) -> tuple[str, list[str]]:
+    def check_output(self, text: str) -> tuple[str, list[str]]:
         """
         Validate and clean output before returning to client
         Returns: (cleaned_output, warnings)
         """
         return self.output_validator.validate(text)
-    
-     

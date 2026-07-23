@@ -1,5 +1,7 @@
 # Production LangGraph API
 
+[![CI](https://github.com/bidhankhadka11/langgraph-api/actions/workflows/ci.yml/badge.svg)](https://github.com/bidhankhadka11/langgraph-api/actions/workflows/ci.yml)
+
 A production-grade **LLM chat API** built with FastAPI and LangGraph — designed to show what it takes
 to run a language-model service in production, not just call an LLM in a notebook.
 

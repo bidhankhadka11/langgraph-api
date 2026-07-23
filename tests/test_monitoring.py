@@ -2,6 +2,7 @@
 Tests for structured logging and metrics (app/monitoring.py).
 Fast, deterministic, no external dependencies.
 """
+
 import json
 import logging
 import time
@@ -15,15 +16,15 @@ class TestMetricsCollector:
 
     def test_records_counts_latency_and_tokens(self):
         self.m.record_request(100.0, input_tokens=10, output_tokens=20)  # miss
-        self.m.record_request(0.0, cached=True)                          # hit
-        self.m.record_request(50.0, error=True)                          # miss + error
+        self.m.record_request(0.0, cached=True)  # hit
+        self.m.record_request(50.0, error=True)  # miss + error
 
         snap = self.m.snapshot()
         assert snap["total_requests"] == 3
         assert snap["total_errors"] == 1
         assert snap["error_rate"] == "33.3%"
-        assert snap["avg_latency_ms"] == 50.0        # (100 + 0 + 50) / 3
-        assert snap["cache_hit_rate"] == "33.3%"     # 1 hit / (1 hit + 2 miss)
+        assert snap["avg_latency_ms"] == 50.0  # (100 + 0 + 50) / 3
+        assert snap["cache_hit_rate"] == "33.3%"  # 1 hit / (1 hit + 2 miss)
         assert snap["total_input_tokens"] == 10
         assert snap["total_output_tokens"] == 20
 
@@ -60,8 +61,13 @@ class TestRequestTimer:
 class TestJSONFormatter:
     def test_produces_valid_json_with_expected_fields(self):
         record = logging.LogRecord(
-            name="test", level=logging.INFO, pathname=__file__, lineno=10,
-            msg="hello %s", args=("world",), exc_info=None,
+            name="test",
+            level=logging.INFO,
+            pathname=__file__,
+            lineno=10,
+            msg="hello %s",
+            args=("world",),
+            exc_info=None,
         )
         data = json.loads(JSONFormatter().format(record))
         assert data["level"] == "INFO"
@@ -72,8 +78,13 @@ class TestJSONFormatter:
 
     def test_extra_fields_are_merged(self):
         record = logging.LogRecord(
-            name="test", level=logging.WARNING, pathname=__file__, lineno=11,
-            msg="warn", args=(), exc_info=None,
+            name="test",
+            level=logging.WARNING,
+            pathname=__file__,
+            lineno=11,
+            msg="warn",
+            args=(),
+            exc_info=None,
         )
         record.extra_fields = {"request_id": "abc123"}
         data = json.loads(JSONFormatter().format(record))

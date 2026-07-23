@@ -1,6 +1,7 @@
 """
 Tests for centralized configuration (app/config.py).
 """
+
 from app.config import Settings, get_settings
 
 

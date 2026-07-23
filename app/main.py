@@ -11,8 +11,6 @@ Wires together:
 - Health checks
 """
 
-import time
-import os
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, Request, HTTPException
@@ -25,8 +23,10 @@ from dotenv import load_dotenv
 
 from app.config import get_settings
 from app.models import (
-    ChatRequest, ChatResponse,
-    HealthResponse, MetricsResponse, ErrorResponse,
+    ChatRequest,
+    ChatResponse,
+    HealthResponse,
+    MetricsResponse,
 )
 from app.security import SecurityPipeline
 from app.cache import ResponseCache
@@ -34,7 +34,6 @@ from app.monitoring import get_logger, MetricsCollector, RequestTimer
 from app.agent import ProductionAgent
 
 load_dotenv()
-
 
 
 # === Global instances (initialized in lifespan) ===
@@ -47,6 +46,7 @@ logger = get_logger()
 
 # === Lifespan (startup/shutdown) ===
 
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """
@@ -57,11 +57,16 @@ async def lifespan(app: FastAPI):
 
     settings = get_settings()
 
-    logger.info("Starting production API...", extra={"extra_data": {
-        "environment": settings.app_env,
-        "primary_model": settings.primary_model,
-        "tracing_enabled": settings.langchain_tracing_v2,
-    }})
+    logger.info(
+        "Starting production API...",
+        extra={
+            "extra_data": {
+                "environment": settings.app_env,
+                "primary_model": settings.primary_model,
+                "tracing_enabled": settings.langchain_tracing_v2,
+            }
+        },
+    )
 
     # Initialize components
     security = SecurityPipeline()
@@ -75,8 +80,8 @@ async def lifespan(app: FastAPI):
 
     # Shutdown
     logger.info("Shutting down...", extra={"extra_data": metrics.snapshot()})
-    
-    
+
+
 # === Rate Limiter Setup ===
 limiter = Limiter(key_func=get_remote_address)
 
@@ -92,12 +97,18 @@ app.state.limiter = limiter
 
 # === Exception Handlers ===
 
+
 @app.exception_handler(RateLimitExceeded)
 async def rate_limit_handler(request: Request, exc: RateLimitExceeded):
     """Handle rate limit exceeded errors."""
-    logger.warning("Rate limit exceeded", extra={"extra_data": {
-        "client_ip": get_remote_address(request),
-    }})
+    logger.warning(
+        "Rate limit exceeded",
+        extra={
+            "extra_data": {
+                "client_ip": get_remote_address(request),
+            }
+        },
+    )
     return JSONResponse(
         status_code=429,
         content={
@@ -105,11 +116,12 @@ async def rate_limit_handler(request: Request, exc: RateLimitExceeded):
             "detail": "Too many requests. Please slow down.",
         },
     )
-    
+
 
 # =============================================
 # ENDPOINTS
 # =============================================
+
 
 @app.post("/chat", response_model=ChatResponse)
 @limiter.limit(get_settings().rate_limit)
@@ -134,23 +146,33 @@ async def chat(request: Request, body: ChatRequest):
         security_notes.extend(notes)
 
         if not is_allowed:
-            logger.warning("Request blocked by security", extra={"extra_data": {
-                "reason": notes,
-                "thread_id": body.thread_id,
-            }})
+            logger.warning(
+                "Request blocked by security",
+                extra={
+                    "extra_data": {
+                        "reason": notes,
+                        "thread_id": body.thread_id,
+                    }
+                },
+            )
             metrics.record_request(latency_ms=0, error=True)
             raise HTTPException(
                 status_code=400,
-                detail="Your message was blocked by our security filters."
+                detail="Your message was blocked by our security filters.",
             )
 
         # ---- Step 2: Cache Lookup ----
         cached_response = cache.get(cleaned_message)
         if cached_response is not None:
             metrics.record_request(latency_ms=0, cached=True)
-            logger.info("Cache hit", extra={"extra_data": {
-                "thread_id": body.thread_id,
-            }})
+            logger.info(
+                "Cache hit",
+                extra={
+                    "extra_data": {
+                        "thread_id": body.thread_id,
+                    }
+                },
+            )
             return ChatResponse(
                 response=cached_response,
                 thread_id=body.thread_id,
@@ -163,14 +185,19 @@ async def chat(request: Request, body: ChatRequest):
         try:
             result = agent.invoke(cleaned_message)
         except Exception as e:
-            logger.error(f"Agent invocation failed: {e}", extra={"extra_data": {
-                "thread_id": body.thread_id,
-                "error": str(e),
-            }})
+            logger.error(
+                f"Agent invocation failed: {e}",
+                extra={
+                    "extra_data": {
+                        "thread_id": body.thread_id,
+                        "error": str(e),
+                    }
+                },
+            )
             metrics.record_request(latency_ms=0, error=True)
             raise HTTPException(
                 status_code=500,
-                detail="An error occurred while processing your request."
+                detail="An error occurred while processing your request.",
             )
 
         response_text = result["response"]
@@ -195,16 +222,26 @@ async def chat(request: Request, body: ChatRequest):
     )
 
     if security_notes:
-        logger.info("Security notes", extra={"extra_data": {
-            "notes": security_notes,
-            "thread_id": body.thread_id,
-        }})
+        logger.info(
+            "Security notes",
+            extra={
+                "extra_data": {
+                    "notes": security_notes,
+                    "thread_id": body.thread_id,
+                }
+            },
+        )
 
-    logger.info("Request completed", extra={"extra_data": {
-        "thread_id": body.thread_id,
-        "model_used": model_used,
-        "latency_ms": round(timer.elapsed_ms, 2),
-    }})
+    logger.info(
+        "Request completed",
+        extra={
+            "extra_data": {
+                "thread_id": body.thread_id,
+                "model_used": model_used,
+                "latency_ms": round(timer.elapsed_ms, 2),
+            }
+        },
+    )
 
     return ChatResponse(
         response=validated_response,
@@ -214,10 +251,8 @@ async def chat(request: Request, body: ChatRequest):
         processing_time_ms=round(timer.elapsed_ms, 2),
         security_notes=security_notes,
     )
-    
-    
-    
-    
+
+
 @app.get("/health", response_model=HealthResponse)
 async def health():
     """Health check for Docker/Kubernetes."""
