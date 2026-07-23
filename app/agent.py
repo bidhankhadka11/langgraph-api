@@ -4,6 +4,7 @@ from typing_extensions import TypedDict, Annotated
 from langgraph.graph import StateGraph, START, END
 from langgraph.graph.message import add_messages
 from langchain_openai import ChatOpenAI
+from langchain_anthropic import ChatAnthropic
 from langchain_core.messages import HumanMessage, AIMessage, BaseMessage
 from langsmith import traceable
 
@@ -42,12 +43,13 @@ class ProductionAgent:
             max_retries=0,  # We handle retries ourselves
             api_key=settings.openai_api_key,
         )
-        self.fallback_llm = ChatOpenAI(
+        # Fallback uses Claude's cheapest model (Haiku 4.5) via Anthropic.
+        self.fallback_llm = ChatAnthropic(
             model=settings.fallback_model,
             temperature=0,
             timeout=30,
             max_retries=0,
-            api_key=settings.openai_api_key,
+            api_key=settings.anthropic_api_key,
         )
         self.max_retries = settings.max_retries
         self.graph = self._build_graph()

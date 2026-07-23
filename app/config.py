@@ -16,8 +16,10 @@ class Settings(BaseSettings):
 
     #LLM Configuration
     openai_api_key: str
+    anthropic_api_key: str = ""
     primary_model:str = "gpt-4o-mini"
-    fallback_model: str = "gpt-4o-mini" #For this project setting both same
+    # Primary is OpenAI; fallback is Claude's cheapest model (Haiku 4.5, $1/$5 per 1M tokens).
+    fallback_model: str = "claude-haiku-4-5"
     
     #Langsmith
     langchain_tracing_v2: bool = True
