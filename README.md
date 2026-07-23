@@ -16,8 +16,9 @@ logging, metrics, and distributed tracing.
 
 ## Features
 
-- **🧠 LangGraph agent** — a state-machine agent with automatic **model fallback**: if the primary model
-  fails, it retries on a fallback model, and degrades gracefully to a friendly error instead of a 500.
+- **🧠 LangGraph agent** — a state-machine agent with automatic **cross-provider model fallback**: if the
+  primary model (OpenAI `gpt-4o-mini`) fails, it retries on a different provider (Anthropic Claude Haiku 4.5)
+  for resilience, and degrades gracefully to a friendly error instead of a 500.
 - **🛡️ Security pipeline** — blocks prompt-injection attempts, strips risky delimiters, and masks PII
   (emails, phones, SSNs, credit cards) on both the way in *and* the way out. Output is also scanned for
   leaked secrets and harmful content.
@@ -52,7 +53,7 @@ Components are initialized once at startup via FastAPI's lifespan and shared acr
 |---------|------|
 | Web framework | FastAPI + Uvicorn |
 | Agent orchestration | LangGraph + LangChain |
-| LLM provider | OpenAI (`gpt-4o-mini`) |
+| LLM provider | OpenAI (`gpt-4o-mini`) primary, Anthropic (`claude-haiku-4-5`) fallback |
 | Tracing / observability | LangSmith |
 | Rate limiting | slowapi |
 | Config / validation | pydantic-settings |
@@ -120,8 +121,10 @@ Copy `.env.example` to `.env` and fill in:
 
 | Variable | Description | Default |
 |----------|-------------|---------|
-| `OPENAI_API_KEY` | OpenAI API key (**required**) | — |
-| `PRIMARY_MODEL` / `FALLBACK_MODEL` | Model ids | `gpt-4o-mini` |
+| `OPENAI_API_KEY` | OpenAI API key — primary model (**required**) | — |
+| `ANTHROPIC_API_KEY` | Anthropic API key — fallback model (required for fallback) | — |
+| `PRIMARY_MODEL` | Primary model id (OpenAI) | `gpt-4o-mini` |
+| `FALLBACK_MODEL` | Fallback model id (Anthropic) | `claude-haiku-4-5` |
 | `LANGSMITH_API_KEY` | LangSmith key (enables tracing) | — |
 | `LANGSMITH_PROJECT` | LangSmith project name | `production-api` |
 | `APP_ENV` | `development` / `production` | `development` |
